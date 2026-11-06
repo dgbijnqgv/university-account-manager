@@ -1,0 +1,18 @@
+# Source-only allowlist. Local accounts, exports, QA documents, builds,
+# configuration and all newly created files stay ignored unless listed here.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/README.txt
+!/app.py
+!/word_export.py
+!/mac_crypto.py
+!/build_mac.py
+!/check_mac.py
+!/Launch.cmd
+!/requirements-mac.txt
+!/test_app.py
+!/test_profiles.py
+!/test_mac.py
+!/test_word_export.py
