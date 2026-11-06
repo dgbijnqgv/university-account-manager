@@ -16,3 +16,12 @@
 !/test_profiles.py
 !/test_mac.py
 !/test_word_export.py
+!/version.py
+!/frozen_check.py
+!/build_native.py
+!/requirements-build.txt
+!/.github/
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/release.yml

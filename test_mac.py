@@ -58,7 +58,7 @@ class MacTests(unittest.TestCase):
             output = build(Path(folder) / 'mac.zip')
             with zipfile.ZipFile(output) as archive:
                 self.assertIsNone(archive.testzip())
-                self.assertEqual(len(archive.namelist()), 9)
+                self.assertEqual(len(archive.namelist()), 11)
                 self.assertFalse(any('/data/' in name or name.endswith('.vault') for name in archive.namelist()))
                 info = plistlib.loads(archive.read(PREFIX + APP + 'Info.plist'))
                 self.assertEqual(info['CFBundleExecutable'], 'CollegePortals')

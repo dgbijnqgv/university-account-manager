@@ -14,8 +14,9 @@ from urllib.parse import urlsplit
 import uuid
 import webbrowser
 from word_export import word_export
+from version import VERSION
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 IS_MAC = sys.platform == "darwin"
 VAULT = (Path.home() / "Library" / "Application Support" / "College Portals" / "accounts.vault"
          if IS_MAC else ROOT / "data" / "accounts.vault")
@@ -201,7 +202,7 @@ def portal_url(value: str) -> str:
 class App(tk.Tk):
     def __init__(self, store: Store | None = None):
         super().__init__()
-        self.title("College Portals")
+        self.title(f"College Portals {VERSION}")
         self.geometry("1000x740")
         self.minsize(850, 680)
         self.configure(bg="#f5f6f8")
@@ -433,7 +434,7 @@ class App(tk.Tk):
         self.refresh()
         self.refresh_profiles()
         self.profile_label.configure(text=f"Active account: {self.profile_name()}")
-        self.title(f"College Portals — {self.profile_name()}")
+        self.title(f"College Portals {VERSION} — {self.profile_name()}")
         self.feedback.configure(text=f"Switched to {self.profile_name()}.")
         self.tabs.select(self.portals_tab)
         return True
@@ -751,4 +752,8 @@ class App(tk.Tk):
 
 
 if __name__ == "__main__":
-    App().mainloop()
+    if len(sys.argv) == 3 and sys.argv[1] == "--self-test":
+        from frozen_check import self_test
+        self_test(Path(sys.argv[2]))
+    else:
+        App().mainloop()

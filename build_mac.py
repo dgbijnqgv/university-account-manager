@@ -2,6 +2,7 @@
 from pathlib import Path
 import plistlib
 import zipfile
+from version import VERSION
 
 ROOT = Path(__file__).resolve().parent
 PREFIX = "College Portals Mac/"
@@ -120,12 +121,12 @@ def build(destination=None):
             "CFBundleName": "College Portals", "CFBundleDisplayName": "College Portals",
             "CFBundleIdentifier": "local.collegeportals.manager",
             "CFBundleExecutable": "CollegePortals", "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": "1.0", "CFBundleVersion": "1",
+            "CFBundleShortVersionString": VERSION, "CFBundleVersion": VERSION,
             "NSHighResolutionCapable": True,
         }), False),
     }
     # Explicit allowlist: never package local account data or Keychain keys.
-    for name in ("app.py", "mac_crypto.py", "requirements-mac.txt", "check_mac.py", "word_export.py"):
+    for name in ("app.py", "mac_crypto.py", "requirements-mac.txt", "check_mac.py", "word_export.py", "version.py", "frozen_check.py"):
         files[APP + "Resources/" + name] = (ROOT.joinpath(name).read_bytes(), False)
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, (data, executable) in files.items():

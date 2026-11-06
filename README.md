@@ -3,6 +3,20 @@
 A small local desktop manager for college portal accounts, built with Python
 and Tk. Supports Windows and a Python-based macOS app bundle.
 
+## Standalone release 1.0.0
+
+Release downloads bundle Python and all required libraries. Recipients do not
+need to install Python. Choose Windows x64, Mac Apple Silicon, or Mac Intel.
+Extract the ZIP and read its README. The Windows portable executable needs
+its accompanying `_internal` folder. Mac bundles are ad-hoc signed and are
+not Apple notarized; Windows builds are unsigned.
+
+Native builds run through `.github/workflows/release.yml` on each target OS.
+They run an executable-level encryption and GUI self-test before uploading
+artifacts. To build locally on the target OS, install `requirements-build.txt`
+and run `python build_native.py`. Private-repository hosted builds use GitHub
+Actions allowances. Source launch instructions below are for developers.
+
 - Separate email, username, applicant ID, password, status, and notes.
 - Search, portal links, paste controls, and password copy/reveal.
 - Local profiles with separate records and no extra login restrictions.
