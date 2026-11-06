@@ -25,3 +25,5 @@
 !/.github/workflows/
 /.github/workflows/*
 !/.github/workflows/release.yml
+!/.github/workflows/installers.yml
+!/build_installers.py

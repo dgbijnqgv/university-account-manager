@@ -7,6 +7,16 @@ and Tk. Supports Windows and a Python-based macOS app bundle.
 
 Release downloads bundle Python and all required libraries. Recipients do not
 need to install Python. Choose Windows x64, Mac Apple Silicon, or Mac Intel.
+Installer downloads avoid manual extraction: use the Windows `Setup.exe`
+or the Mac `.pkg` for your processor. Windows installs for the current user
+and creates desktop and Start-menu shortcuts. Mac installs into Applications.
+Standard installer confirmations and OS security checks still apply. The
+Windows app is unsigned and the Mac installers are not Apple notarized.
+Windows uninstall leaves user-created account data in the installation's
+`data` folder. Existing portable users can transfer records with JSON export
+and import, or copy their backed-up `data` folder beside the installed EXE.
+
+ZIP downloads remain available as portable alternatives.
 Extract the ZIP and read its README. The Windows portable executable needs
 its accompanying `_internal` folder. Mac bundles are ad-hoc signed and are
 not Apple notarized; Windows builds are unsigned.

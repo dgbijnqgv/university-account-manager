@@ -1,0 +1,41 @@
+name: Build installers
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            label: Windows-x64
+          - runner: macos-15
+            label: Mac-AppleSilicon
+          - runner: macos-15-intel
+            label: Mac-Intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Isolate native test Keychain
+        if: runner.os == 'macOS'
+        run: |
+          security create-keychain -p diagnostic-only "$RUNNER_TEMP/diagnostic.keychain-db"
+          security unlock-keychain -p diagnostic-only "$RUNNER_TEMP/diagnostic.keychain-db"
+          security default-keychain -s "$RUNNER_TEMP/diagnostic.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/diagnostic.keychain-db"
+      - name: Build installer and verify installed application
+        run: python build_installers.py --label ${{ matrix.label }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}-installer
+          path: dist/installers/*
+          if-no-files-found: error
+          retention-days: 7
