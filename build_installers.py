@@ -20,21 +20,28 @@ def download(url, path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--label", required=True, choices=("Windows-x64", "Mac-AppleSilicon", "Mac-Intel"))
+    parser.add_argument("--bundle-dir", type=Path, help="Use a freshly tested native build instead of a published release")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     work = root / "build" / "installers" / args.label
     work.mkdir(parents=True, exist_ok=True)
     output = root / "dist" / "installers"
     output.mkdir(parents=True, exist_ok=True)
-    base = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/releases/download/v{VERSION}"
     name = f"College-Portals-{VERSION}-{args.label}.zip"
     archive = work / name
     sums = work / "SHA256SUMS.txt"
-    download(base + "/SHA256SUMS.txt", sums)
-    expected = dict(line.split(None, 1)[::-1] for line in sums.read_text().splitlines())
-    download(base + "/" + name, archive)
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != expected[name]:
-        raise ValueError("Released application checksum did not match")
+    if args.bundle_dir is not None:
+        source = args.bundle_dir / name
+        shutil.copy2(source, archive)
+        if source.read_bytes() != archive.read_bytes():
+            raise ValueError("Native bundle copy did not match")
+    else:
+        base = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/releases/download/v{VERSION}"
+        download(base + "/SHA256SUMS.txt", sums)
+        expected = dict(line.split(None, 1)[::-1] for line in sums.read_text().splitlines())
+        download(base + "/" + name, archive)
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != expected[name]:
+            raise ValueError("Released application checksum did not match")
     if sys.platform == "darwin":
         # ditto preserves app framework symlinks and signing metadata.
         subprocess.run(["ditto", "-x", "-k", str(archive), str(work)], check=True)

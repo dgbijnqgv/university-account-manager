@@ -24,6 +24,30 @@ def self_test(output):
             app.load_account(account)
             assert app.fields["applicant_id"].get() == "000123"
             assert app.entries["password"].cget("show") == "•"
+            entry = app.entries["username"]
+            entry.insert("end", "-mistake")
+            entry.event_generate("<<Undo>>")
+            assert entry.get() == "student"
+            entry.event_generate("<<Redo>>")
+            assert entry.get() == "student-mistake"
+            entry.event_generate("<<Undo>>")
+            shortcut = "<Command-z>" if app.tk.call("tk", "windowingsystem") == "aqua" else "<Control-z>"
+            assert entry.bind(shortcut)
+            app.deiconify()
+            entry.focus_force()
+            app.update()
+            entry.insert("end", "-shortcut")
+            entry.event_generate(shortcut)
+            app.update()
+            assert entry.get() == "student"
+            redo = "<Command-Shift-Z>" if app.tk.call("tk", "windowingsystem") == "aqua" else "<Control-y>"
+            entry.event_generate(redo)
+            app.update()
+            assert entry.get() == "student-shortcut"
+            entry.event_generate(shortcut)
+            app.update()
+            assert entry.get() == "student"
+            app.withdraw()
             assert word_export(app.accounts, "Diagnostic").startswith(b"PK")
             assert "Example College" in readable_export(app.accounts, "Diagnostic")
             other = app.profiles.create("Diagnostic second profile")
@@ -34,4 +58,4 @@ def self_test(output):
         finally:
             app.destroy()
     (output / "self-test.json").write_text(json.dumps({"version": VERSION, "passed": True,
-        "checks": ["native encryption", "vault round trip", "Tk GUI", "account fields", "Word/text export", "profile switching"]}), encoding="utf-8")
+        "checks": ["native encryption", "vault round trip", "Tk GUI", "account fields", "undo/redo", "Word/text export", "profile switching"]}), encoding="utf-8")

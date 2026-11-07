@@ -3,7 +3,7 @@
 A small local desktop manager for college portal accounts, built with Python
 and Tk. Supports Windows and a Python-based macOS app bundle.
 
-## Standalone release 1.0.0
+## Standalone release 1.0.1
 
 Release downloads bundle Python and all required libraries. Recipients do not
 need to install Python. Choose Windows x64, Mac Apple Silicon, or Mac Intel.
@@ -32,6 +32,10 @@ Actions allowances. Source launch instructions below are for developers.
 - Local profiles with separate records and no extra login restrictions.
 - JSON import/export, readable text export, and Word document export.
 - Windows DPAPI encryption or a macOS Keychain-protected encryption key.
+
+Version 1.0.1 fixes undo in single-line fields. Use Ctrl+Z on Windows or
+Command+Z on Mac; redo with Ctrl+Y / Ctrl+Shift+Z or Command+Shift+Z.
+Notes, search, pasted selections, and right-click editing support undo/redo.
 
 ## Run on Windows
 

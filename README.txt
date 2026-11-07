@@ -14,6 +14,9 @@ on smaller windows; Save and Delete stay visible below it.
 Existing accounts keep the old combined login as Username. If it looks like
 an email address, Email is also prefilled. You can edit them independently.
 Ctrl+S saves; Ctrl+N starts a new account. Show hides again after 15 seconds.
+Ctrl+Z undoes text edits; Ctrl+Y or Ctrl+Shift+Z redoes them. On Mac use
+Command+Z and Command+Shift+Z. Right-click menus also offer Undo and Redo.
+Undo history is per field and resets when saving or loading an account.
 Unsaved changes prompt you to save before changing accounts or closing.
 Export all saves every saved account (including all login fields, passwords,
 status and notes) in a single UTF-8 JSON file, regardless of the search filter.

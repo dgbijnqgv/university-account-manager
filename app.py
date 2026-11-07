@@ -23,6 +23,35 @@ VAULT = (Path.home() / "Library" / "Application Support" / "College Portals" / "
 STATES = ("Not started", "Applied", "Awaiting decision", "Accepted", "Waitlisted", "Declined")
 
 
+class EntryHistory:
+    """Bounded per-field undo, cleared when a different account is loaded."""
+    def __init__(self, variable):
+        self.variable = variable
+        self.suspended = False
+        self.reset()
+        variable.trace_add("write", self.record)
+
+    def reset(self):
+        self.states = [self.variable.get()]
+        self.position = 0
+
+    def record(self, *_):
+        value = self.variable.get()
+        if not self.suspended and value != self.states[self.position]:
+            self.states = (self.states[:self.position + 1] + [value])[-101:]
+            self.position = len(self.states) - 1
+
+    def move(self, direction):
+        position = self.position + direction
+        if 0 <= position < len(self.states):
+            self.position = position
+            self.suspended = True
+            try:
+                self.variable.set(self.states[position])
+            finally:
+                self.suspended = False
+
+
 def account_payload(payload):
     """Validate the entire file before using or saving any of its records."""
     if not isinstance(payload, dict) or payload.get("version") not in (1, 2):
@@ -292,8 +321,9 @@ class App(tk.Tk):
         self.search = tk.StringVar()
         ttk.Label(left, text="FIND A COLLEGE", style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
         search_entry = ttk.Entry(left, textvariable=self.search)
+        self.search_entry = search_entry
         search_entry.pack(fill="x")
-        self.add_edit_menu(search_entry)
+        self.add_edit_menu(search_entry, self.search)
         self.search.trace_add("write", lambda *_: self.refresh())
         self.count = ttk.Label(left, style="Muted.TLabel")
         self.count.pack(anchor="w", pady=(14, 8))
@@ -339,7 +369,7 @@ class App(tk.Tk):
             entry = ttk.Entry(row, width=12, textvariable=self.fields[key], show="•" if key == "password" else "")
             entry.pack(side="left", fill="x", expand=True)
             self.entries[key] = entry
-            self.add_edit_menu(entry)
+            self.add_edit_menu(entry, self.fields[key])
             paste = ttk.Button(row, text="Paste", width=5, command=lambda w=entry: self.paste(w))
             paste.pack(side="left", padx=(6, 0))
             self.paste_buttons[key] = paste
@@ -431,6 +461,7 @@ class App(tk.Tk):
         self.store, self.accounts, self.active_profile = store, accounts, key
         self.load_account(None)
         self.search.set("")
+        self.search_entry.history.reset()
         self.refresh()
         self.refresh_profiles()
         self.profile_label.configure(text=f"Active account: {self.profile_name()}")
@@ -476,8 +507,13 @@ class App(tk.Tk):
         messagebox.showinfo("Import complete", f"Added {added} accounts to {self.profile_name()}.\n"
                             f"Skipped {len(incoming) - added} duplicates. Existing accounts were kept.", parent=self)
 
-    def add_edit_menu(self, widget):
+    def add_edit_menu(self, widget, variable=None):
+        if variable is not None:
+            widget.history = EntryHistory(variable)
         menu = tk.Menu(widget, tearoff=False)
+        menu.add_command(label="Undo", command=lambda: self.undo_edit(widget))
+        menu.add_command(label="Redo", command=lambda: self.undo_edit(widget, redo=True))
+        menu.add_separator()
         for label, event in (("Cut", "<<Cut>>"), ("Copy", "<<Copy>>"), ("Paste", "<<Paste>>")):
             menu.add_command(label=label, command=lambda e=event: widget.event_generate(e))
         menu.add_separator()
@@ -495,6 +531,12 @@ class App(tk.Tk):
         widget.bind("<<Cut>>", lambda _: self.copy_selection(widget, cut=True))
         widget.bind("<Control-a>", lambda _: self.select_all(widget))
         widget.bind("<Control-A>", lambda _: self.select_all(widget))
+        widget.bind("<<Undo>>", lambda _: self.undo_edit(widget))
+        widget.bind("<<Redo>>", lambda _: self.undo_edit(widget, redo=True))
+        for shortcut in ("<Control-z>", "<Control-Z>"):
+            widget.bind(shortcut, lambda _: self.undo_edit(widget))
+        for shortcut in ("<Control-y>", "<Control-Y>", "<Control-Shift-z>", "<Control-Shift-Z>"):
+            widget.bind(shortcut, lambda _: self.undo_edit(widget, redo=True))
         if IS_MAC:
             widget.bind("<Button-2>", popup)
             widget.bind("<Control-Button-1>", popup)
@@ -502,6 +544,21 @@ class App(tk.Tk):
             widget.bind("<Command-v>", lambda _: self.paste(widget))
             widget.bind("<Command-c>", lambda _: self.copy_selection(widget))
             widget.bind("<Command-x>", lambda _: self.copy_selection(widget, cut=True))
+            widget.bind("<Command-z>", lambda _: self.undo_edit(widget))
+            widget.bind("<Command-Shift-z>", lambda _: self.undo_edit(widget, redo=True))
+            widget.bind("<Command-Shift-Z>", lambda _: self.undo_edit(widget, redo=True))
+
+    def undo_edit(self, widget, redo=False):
+        if isinstance(widget, tk.Text):
+            try:
+                widget.edit_redo() if redo else widget.edit_undo()
+            except tk.TclError:
+                pass  # No history is a normal state, not an error dialog.
+        else:
+            widget.history.move(1 if redo else -1)
+            widget.icursor("end")
+            widget.selection_clear()
+        return "break"
 
     def select_all(self, widget):
         if isinstance(widget, tk.Text):
@@ -554,9 +611,15 @@ class App(tk.Tk):
                 widget.configure(autoseparators=auto)
             widget.edit_separator()
         else:
-            if widget.selection_present():
-                widget.delete("sel.first", "sel.last")
-            widget.insert("insert", value)
+            # Replacing a selection is one edit, rather than delete + insert.
+            widget.history.suspended = True
+            try:
+                if widget.selection_present():
+                    widget.delete("sel.first", "sel.last")
+                widget.insert("insert", value)
+            finally:
+                widget.history.suspended = False
+                widget.history.record()
         self.feedback.configure(text="Pasted text. Save account to keep changes.")
         return "break"
 
@@ -582,6 +645,8 @@ class App(tk.Tk):
         self.current = account["id"] if account else None
         for key, variable in self.fields.items():
             variable.set(account[key] if account else (STATES[0] if key == "status" else ""))
+        for entry in self.entries.values():
+            entry.history.reset()
         self.notes.delete("1.0", "end")
         self.notes.insert("1.0", account["notes"] if account else "")
         self.notes.edit_reset()

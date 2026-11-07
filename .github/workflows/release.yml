@@ -35,10 +35,14 @@ jobs:
           security list-keychains -d user -s "$RUNNER_TEMP/diagnostic.keychain-db"
       - name: Build and test bundled application
         run: python build_native.py
+      - name: Build installer and verify installed application
+        run: python build_installers.py --label ${{ matrix.label }} --bundle-dir dist
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.label }}
-          path: dist/College-Portals-1.0.0-*.zip
+          path: |
+            dist/College-Portals-*.zip
+            dist/installers/*
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v4
