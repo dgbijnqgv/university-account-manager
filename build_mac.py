@@ -72,14 +72,13 @@ passwords, notes and status, regardless of the search filter. The export is
 readable plaintext: keep it private. Save any edits first when prompted.
 The Export all menu also offers Readable text (.txt): a single file with
 clearly labeled details grouped by college, including passwords and notes.
-Open it in TextEdit. Choose JSON for importing records later; text reports
-are for reading and do not support import.
+Open it in TextEdit. Keep the original layout if you plan to reimport it.
 Choose Word document (.docx) for a formatted, editable Word document with
 college headings and labeled details. Word exports include readable passwords
-and do not support import. No extra dependency is needed for Word export.
-Import adds records from that JSON file into the active local profile. Exact
-duplicates are skipped; different records with the same ID are both kept.
-This JSON format can move records between Windows and Mac.
+and need no extra dependency. Import accepts College Portals JSON, TXT, and
+DOCX exports and adds records to the active local profile. Keep the report
+layout and labels for TXT and DOCX. Exact duplicates are skipped; different
+JSON records with the same ID are both kept. JSON preserves internal IDs.
 The Account switch tab creates and switches independent local profiles.
 There are no additional logins or access restrictions. Existing data stays
 in Default, which opens on startup. Import / Export all use the active profile.

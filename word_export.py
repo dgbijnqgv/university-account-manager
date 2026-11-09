@@ -6,6 +6,50 @@ import zipfile
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 ET.register_namespace("w", W)
+FIELDS = (("url", "Portal address"), ("email", "Email"), ("username", "Username"),
+          ("applicant_id", "Applicant / student ID"), ("password", "Password"),
+          ("status", "Application status"), ("notes", "Notes"))
+
+
+def labeled_value(line, label):
+    prefix = label + ":"
+    if line == prefix:
+        return ""
+    if not line.startswith(prefix + " "):
+        raise ValueError(f"Expected the {label} field in the account export.")
+    return line[len(prefix) + 1:]
+
+
+def word_accounts(path):
+    """Read the report's visible text without opening Word or extracting files."""
+    try:
+        with zipfile.ZipFile(path) as archive:
+            member = archive.getinfo("word/document.xml")
+            if member.file_size > 16 * 1024 * 1024:
+                raise ValueError("The Word document is too large to import.")
+            xml = archive.read(member)
+        if b"<!DOCTYPE" in xml.replace(b"\x00", b"").upper():
+            raise ValueError("Unsupported Word document markup.")
+        body = ET.fromstring(xml).find(f"{{{W}}}body")
+        if body is None:
+            raise ValueError("Missing Word document body.")
+    except (zipfile.BadZipFile, KeyError, ET.ParseError) as error:
+        raise ValueError("This is not a readable .docx account export.") from error
+
+    breaks = {f"{{{W}}}br": "\n", f"{{{W}}}cr": "\n", f"{{{W}}}tab": "\t"}
+    paragraphs = ["".join((node.text or "") if node.tag == f"{{{W}}}t" else breaks.get(node.tag, "")
+                           for node in paragraph.iter()) for paragraph in body.findall(f"{{{W}}}p")]
+    if len(paragraphs) < 4 or paragraphs[0] != "College Portal Accounts" or not paragraphs[1].startswith("Profile: "):
+        raise ValueError("Use a Word export made by College Portals.")
+    count = labeled_value(paragraphs[2], "Saved accounts")
+    records = paragraphs[4:]
+    width = len(FIELDS) + 1
+    if count == "0" and records == ["No saved accounts in this profile."]:
+        return []
+    if len(records) % width or count != str(len(records) // width):
+        raise ValueError("The Word export's account count or layout does not match its contents.")
+    return [{"college": records[i], **{key: labeled_value(records[i + j], label)
+             for j, (key, label) in enumerate(FIELDS, 1)}} for i in range(0, len(records), width)]
 
 
 def word_export(accounts, profile_name):
@@ -36,9 +80,7 @@ def word_export(accounts, profile_name):
     paragraph("Contains readable passwords. Keep this document private.")
     for account in sorted(accounts, key=lambda a: a["college"].casefold()):
         paragraph(account["college"], "Heading1")
-        for key, label in (("url", "Portal address"), ("email", "Email"), ("username", "Username"),
-                           ("applicant_id", "Applicant / student ID"), ("password", "Password"),
-                           ("status", "Application status"), ("notes", "Notes")):
+        for key, label in FIELDS:
             paragraph(account[key], label=label + ": ")
     if not accounts:
         paragraph("No saved accounts in this profile.")

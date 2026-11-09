@@ -5,6 +5,7 @@ import ctypes
 from ctypes import wintypes
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -13,7 +14,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from urllib.parse import urlsplit
 import uuid
 import webbrowser
-from word_export import word_export
+from word_export import FIELDS, labeled_value, word_accounts, word_export
 from version import VERSION
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
@@ -101,14 +102,52 @@ def readable_export(accounts, profile_name):
              "Contains readable passwords. Keep this file private.", ""]
     for number, account in enumerate(sorted(accounts, key=lambda a: a["college"].casefold()), 1):
         lines.extend(["=" * 64, f"{number}. {account['college']}", "=" * 64])
-        for key, label in (("url", "Portal address"), ("email", "Email"), ("username", "Username"),
-                           ("applicant_id", "Applicant / student ID"), ("password", "Password"),
-                           ("status", "Application status")):
+        for key, label in FIELDS[:-1]:
             lines.append(f"{label}: {account[key]}")
         lines.extend(["Notes:", account["notes"], ""])
     if not accounts:
         lines.append("No saved accounts in this profile.")
     return "\n".join(lines)
+
+
+def text_accounts(text):
+    header = text.split("\n", 5)
+    if len(header) != 6 or header[0] != "COLLEGE PORTALS" or not header[1].startswith("Profile: ") or header[4]:
+        raise ValueError("Use a text export made by College Portals.")
+    count = labeled_value(header[2], "Saved accounts")
+    body = header[5]
+    if count == "0" and body.rstrip("\n") == "No saved accounts in this profile.":
+        return []
+    headings = list(re.finditer(r"^={64}\n([1-9][0-9]*)\. ([^\n]+)\n={64}\n", body, re.MULTILINE))
+    if not headings or headings[0].start() != 0 or count != str(len(headings)):
+        raise ValueError("The text export's account count or layout does not match its contents.")
+    accounts = []
+    for index, heading in enumerate(headings):
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(body)
+        if heading[1] != str(index + 1):
+            raise ValueError("The text export's account numbers are out of order.")
+        # Remove the report's record separator while retaining newlines in notes.
+        block = body[heading.end():end]
+        block = block.removesuffix("\n\n") if block.endswith("\n\n") else block.removesuffix("\n")
+        lines = block.split("\n", len(FIELDS))
+        if len(lines) != len(FIELDS) + 1 or lines[-2] != "Notes:":
+            raise ValueError("The text export is missing fields or the Notes label.")
+        account = {key: labeled_value(line, label) for (key, label), line in zip(FIELDS[:-1], lines)}
+        accounts.append({**account, "college": heading[2], "notes": lines[-1]})
+    return accounts
+
+
+def read_import(path):
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        return account_payload(json.loads(path.read_text(encoding="utf-8-sig")))
+    if suffix == ".txt":
+        accounts = text_accounts(path.read_text(encoding="utf-8-sig"))
+    elif suffix == ".docx":
+        accounts = word_accounts(path)
+    else:
+        raise ValueError("Choose a College Portals JSON, TXT, or DOCX export.")
+    return account_payload({"version": 2, "accounts": [{**a, "id": str(uuid.uuid4())} for a in accounts]})
 
 
 class Profiles:
@@ -474,11 +513,12 @@ class App(tk.Tk):
         if not self.may_leave():
             return
         filename = filedialog.askopenfilename(parent=self, title=f"Import accounts into {self.profile_name()}",
-                                              filetypes=[("JSON account export", "*.json")])
+                                              filetypes=[("College Portals exports", ("*.json", "*.txt", "*.docx")),
+                                                         ("JSON", "*.json"), ("Text", "*.txt"), ("Word", "*.docx")])
         if not filename:
             return
         try:
-            incoming = account_payload(json.loads(Path(filename).read_text(encoding="utf-8-sig")))
+            incoming = read_import(Path(filename))
             updated = list(self.accounts)
             def signature(account):
                 return tuple((k, account[k]) for k in sorted(account) if k != "id")

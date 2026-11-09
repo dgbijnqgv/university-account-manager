@@ -56,7 +56,7 @@ def main():
     subprocess.run([str(executable), "--self-test", str(report)], check=True, timeout=120)
     import json
     assert json.loads((report / "self-test.json").read_text())["passed"]
-    readme += ("\nJSON import/export transfers records between computers. Text and Word exports are for reading.\n"
+    readme += ("\nCollege Portals JSON, TXT, and DOCX exports can be imported on another computer. Keep the TXT/DOCX layout and labels.\n"
                "All exports contain readable passwords: keep them private. Local profiles separate records without extra access restrictions.\n")
     output = ROOT / "dist" / f"College-Portals-{VERSION}-{label}.zip"
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:

@@ -6,7 +6,7 @@ from version import VERSION
 
 
 def self_test(output):
-    from app import App, Store, word_export, readable_export
+    from app import App, Store, read_import, word_export, readable_export
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output) as folder:
@@ -48,8 +48,13 @@ def self_test(output):
             app.update()
             assert entry.get() == "student"
             app.withdraw()
-            assert word_export(app.accounts, "Diagnostic").startswith(b"PK")
-            assert "Example College" in readable_export(app.accounts, "Diagnostic")
+            expected = {key: value for key, value in account.items() if key != "id"}
+            for suffix, content in (("docx", word_export(app.accounts, "Diagnostic")),
+                                    ("txt", (readable_export(app.accounts, "Diagnostic") + "\n").encode("utf-8"))):
+                path = Path(folder) / f"diagnostic.{suffix}"
+                path.write_bytes(content)
+                imported, = read_import(path)
+                assert {key: value for key, value in imported.items() if key != "id"} == expected
             other = app.profiles.create("Diagnostic second profile")
             assert app.switch_profile(other["id"])
             assert app.accounts == []
@@ -58,4 +63,4 @@ def self_test(output):
         finally:
             app.destroy()
     (output / "self-test.json").write_text(json.dumps({"version": VERSION, "passed": True,
-        "checks": ["native encryption", "vault round trip", "Tk GUI", "account fields", "undo/redo", "Word/text export", "profile switching"]}), encoding="utf-8")
+        "checks": ["native encryption", "vault round trip", "Tk GUI", "account fields", "undo/redo", "Word/text round trip", "profile switching"]}), encoding="utf-8")

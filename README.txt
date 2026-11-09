@@ -25,14 +25,15 @@ saved first; choosing not to save exports the previously saved accounts.
 Click Export all and choose Readable text (.txt) for a single, clearly labeled
 file you can open in Notepad or TextEdit. It groups details by college and
 includes the active profile name, passwords, status and multiline notes.
-Choose JSON (for import / backup) when you need to import the records later;
-the text report is for reading and does not support import.
+JSON is recommended for backups because it preserves internal record IDs.
 Export all > Word document (.docx) creates a formatted Word file with college
 headings and labeled details. It includes readable passwords. Word reports
-are for reading/editing, not import. No additional packages are required.
-Import reads this JSON format on Windows or Mac and adds records to the
-active profile. Identical records are skipped. If an ID conflicts with a
-different record, both are kept. Invalid files leave existing records intact.
+require no additional packages.
+Import reads College Portals JSON, TXT and DOCX exports into the active
+profile on Windows or Mac. For TXT and DOCX, keep the original report layout,
+field labels and account count. Older .doc files and arbitrary reports are
+not supported. Identical records are skipped. If a JSON ID conflicts with
+a different record, both are kept. Invalid files leave existing records intact.
 
 Use the Account switch tab to create and switch local accounts / profiles.
 These separate college records without adding logins or access restrictions.
@@ -40,7 +41,7 @@ Existing records stay in Default. The app starts in Default on each launch.
 Import and Export all apply only to the active profile. Other profiles are
 stored in data\profiles\; their names are in data\profiles.json. Back up the
 entire data folder to preserve every profile, together with Windows DPAPI keys.
-To move records between Windows and Mac, export JSON and import it there.
+To move records between Windows and Mac, export and import on the other device.
 
 MAC VERSION
 The Mac package is dist\College-Portals-Mac.zip. Extract it on a Mac and

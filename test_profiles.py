@@ -31,6 +31,39 @@ class ProfileImportTests(unittest.TestCase):
             self.app.import_button.invoke()
         self.app.update()
 
+    def test_text_and_word_exports_import_without_losing_values(self):
+        self.save_college("Université Example")
+        self.app.new()
+        self.app.fields["college"].set("Second College")
+        self.app.fields["password"].set("  test<&>  ")
+        self.app.notes.insert("1.0", "\nFirst\n\nLast\n")
+        self.assertTrue(self.app.save())
+        expected = [{k: v for k, v in a.items() if k != "id"} for a in self.app.accounts]
+        exports = []
+        for extension in ("txt", "docx"):
+            path = self.root / f"transfer.{extension}"
+            with patch("app.filedialog.asksaveasfilename", return_value=str(path)), patch("app.messagebox.showinfo"):
+                self.app.export_all(extension)
+            exports.append(path)
+        for path in exports:
+            with patch("app.simpledialog.askstring", return_value=path.suffix):
+                self.app.create_profile()
+            self.import_file(path)
+            self.assertCountEqual([{k: v for k, v in a.items() if k != "id"} for a in self.app.accounts], expected)
+            self.import_file(path)
+            self.assertEqual(len(self.app.accounts), 2)
+
+    def test_malformed_text_and_word_imports_leave_vault_intact(self):
+        self.save_college("Keep this")
+        original = self.store.path.read_bytes()
+        for extension in ("txt", "docx"):
+            path = self.root / f"invalid.{extension}"
+            path.write_text("Not a College Portals export", encoding="utf-8")
+            with patch("app.messagebox.showerror") as error:
+                self.import_file(path)
+                error.assert_called_once()
+            self.assertEqual(self.store.path.read_bytes(), original)
+
     def test_export_import_round_trip_profile_isolation_and_restart(self):
         self.save_college("Original College")
         default = self.store.path.read_bytes()

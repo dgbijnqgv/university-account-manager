@@ -3,7 +3,7 @@
 A small local desktop manager for college portal accounts, built with Python
 and Tk. Supports Windows and a Python-based macOS app bundle.
 
-## Standalone release 1.0.1
+## Standalone release 1.0.2
 
 Release downloads bundle Python and all required libraries. Recipients do not
 need to install Python. Choose Windows x64, Mac Apple Silicon, or Mac Intel.
@@ -30,7 +30,7 @@ Actions allowances. Source launch instructions below are for developers.
 - Separate email, username, applicant ID, password, status, and notes.
 - Search, portal links, paste controls, and password copy/reveal.
 - Local profiles with separate records and no extra login restrictions.
-- JSON import/export, readable text export, and Word document export.
+- JSON, TXT, and DOCX import/export using the app's export formats.
 - Windows DPAPI encryption or a macOS Keychain-protected encryption key.
 
 Version 1.0.1 fixes undo in single-line fields. Use Ctrl+Z on Windows or
@@ -64,8 +64,10 @@ Account data stays local. Windows stores it in `data/`; macOS uses
 vaults and their OS encryption keys. Profiles organize records and do not
 provide access control between people using the same OS login.
 
-JSON, text, and Word exports include readable passwords. JSON is the format
-for moving accounts between Windows and Mac. Export files should remain private.
+JSON, text, and Word exports include readable passwords and can be imported
+on Windows or Mac. JSON is recommended for backups because it preserves
+internal record IDs. TXT and DOCX imports require the original report layout
+and field labels. Export files should remain private.
 
 The repository uses an explicit source-file allowlist. Account vaults, profile
 names, exported files, local QA documents, build packages, machine settings,
