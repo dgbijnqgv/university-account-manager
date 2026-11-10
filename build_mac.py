@@ -125,7 +125,7 @@ def build(destination=None):
         }), False),
     }
     # Explicit allowlist: never package local account data or Keychain keys.
-    for name in ("app.py", "mac_crypto.py", "requirements-mac.txt", "check_mac.py", "word_export.py", "version.py", "frozen_check.py"):
+    for name in ("app.py", "mac_crypto.py", "requirements-mac.txt", "check_mac.py", "word_export.py", "version.py", "frozen_check.py", "college_portals_cli.py"):
         files[APP + "Resources/" + name] = (ROOT.joinpath(name).read_bytes(), False)
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, (data, executable) in files.items():

@@ -3,7 +3,7 @@
 A small local desktop manager for college portal accounts, built with Python
 and Tk. Supports Windows and a Python-based macOS app bundle.
 
-## Standalone release 1.0.2
+## Standalone release 1.1.0
 
 Release downloads bundle Python and all required libraries. Recipients do not
 need to install Python. Choose Windows x64, Mac Apple Silicon, or Mac Intel.
@@ -45,6 +45,41 @@ Install Python 3.10 or newer with Tk, then open `Launch.cmd` or run:
 python app.py
 ```
 
+## CLI for automation
+
+Run `python college_portals_cli.py schema` to discover the commands, fields,
+statuses, and exit codes as JSON. No GUI window or network service is needed.
+On Mac, use the Python environment with `requirements-mac.txt` installed.
+
+```powershell
+python college_portals_cli.py profiles
+python college_portals_cli.py list --query Applied --limit 25
+'{"college":"Example College","status":"Applied"}' | python college_portals_cli.py add
+python college_portals_cli.py get ACCOUNT_ID
+'{"notes":"Check the financial aid checklist"}' | python college_portals_cli.py update ACCOUNT_ID
+python college_portals_cli.py --profile "Other student" import accounts.docx
+```
+
+`profile-add NAME` creates a profile; `delete ACCOUNT_ID` deletes a record.
+The `--profile` and `--vault` options go before the command. `--vault` points
+to the Default `accounts.vault`, even when accessing another profile. The
+default is the source app's `data/accounts.vault` on Windows or the usual
+Application Support vault on Mac. To use the standard Windows installed app's
+data, pass `--vault "$env:LOCALAPPDATA\Programs\College Portals\data\accounts.vault"`.
+
+Successful commands write one compact JSON object to stdout. Errors write one
+JSON object to stderr and return a nonzero exit code. Use stable record IDs
+from `list`; list results are compact and paginate with `--offset` and
+`--limit`. `add` skips an identical account, and `update` changes only the
+fields supplied. `get` returns account details and a `has_password` flag.
+Passwords can be written via JSON stdin or import, and the CLI never returns
+the password field. Supply secrets through stdin rather than command arguments.
+
+The updated GUI and CLI reject stale or concurrent writes. If a write conflicts,
+reload before retrying. Close older GUI builds before CLI writes because those
+builds do not check for a stale vault. Get the CLI from the release's source
+ZIP and run it with Python.
+
 ## Build the Mac download
 
 ```powershell
@@ -82,7 +117,7 @@ See `README.txt` for usage and backup details.
 The shared Windows GUI tests need Python with Tk:
 
 ```powershell
-python -m unittest -v test_app.py test_profiles.py test_word_export.py
+python -m unittest -v test_app.py test_profiles.py test_word_export.py test_cli.py
 ```
 
 `test_mac.py` also uses `cryptography` to test the Mac encryption logic with

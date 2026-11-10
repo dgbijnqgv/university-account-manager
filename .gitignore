@@ -28,3 +28,5 @@
 !/.github/workflows/installers.yml
 !/build_installers.py
 !/test_undo.py
+!/college_portals_cli.py
+!/test_cli.py

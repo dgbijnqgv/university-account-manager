@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
+from contextlib import contextmanager
 import json
 import os
 import re
@@ -97,6 +98,53 @@ def atomic_write(path, data):
             temporary.unlink(missing_ok=True)
 
 
+class StoreConflict(OSError):
+    """A writer is busy or a newer snapshot must be read before saving."""
+
+
+def read_snapshot(path):
+    try:
+        return path.read_bytes()
+    except FileNotFoundError:
+        return None
+
+
+@contextmanager
+def write_lock(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.with_suffix(path.suffix + ".lock").open("a+b") as lock:
+        try:
+            if os.name == "nt":
+                import msvcrt
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            raise StoreConflict("Another process is writing. Reload and retry.") from error
+        yield  # Closing the descriptor releases the OS lock, including on failure.
+
+
+def merge_accounts(existing, incoming):
+    def signature(account):
+        return tuple(sorted((key, value) for key, value in account.items() if key != "id"))
+
+    updated = list(existing)
+    seen = {signature(a) for a in existing}
+    identifiers = {a["id"] for a in existing}
+    for account in incoming:
+        value = signature(account)
+        if value in seen:
+            continue
+        if account["id"] in identifiers:
+            account = {**account, "id": str(uuid.uuid4())}
+        updated.append(account)
+        seen.add(value)
+        identifiers.add(account["id"])
+    return updated, len(updated) - len(existing)
+
+
 def readable_export(accounts, profile_name):
     lines = ["COLLEGE PORTALS", f"Profile: {profile_name}", f"Saved accounts: {len(accounts)}",
              "Contains readable passwords. Keep this file private.", ""]
@@ -156,8 +204,9 @@ class Profiles:
         self.default_vault = default_vault
         self.catalog = default_vault.parent / "profiles.json"
         self.items = [{"id": "default", "name": "Default"}]
-        if self.catalog.exists():
-            items = json.loads(self.catalog.read_text(encoding="utf-8"))
+        self._snapshot = read_snapshot(self.catalog)
+        if self._snapshot is not None:
+            items = json.loads(self._snapshot)
             if not isinstance(items, list) or not items or items[0] != self.items[0]:
                 raise ValueError("Invalid profile list")
             names, ids = set(), set()
@@ -186,7 +235,12 @@ class Profiles:
             raise ValueError("A profile with that name already exists")
         item = {"id": str(uuid.uuid4()), "name": name}
         updated = self.items + [item]
-        atomic_write(self.catalog, json.dumps(updated, ensure_ascii=False, indent=2).encode("utf-8"))
+        data = json.dumps(updated, ensure_ascii=False, indent=2).encode("utf-8")
+        with write_lock(self.catalog):
+            if read_snapshot(self.catalog) != self._snapshot:
+                raise StoreConflict("Profiles changed in another process. Reopen the app and retry.")
+            atomic_write(self.catalog, data)
+            self._snapshot = data
         self.items = updated
         return item
 
@@ -231,24 +285,21 @@ def crypt(data: bytes, decrypt: bool = False) -> bytes:
 class Store:
     def __init__(self, path: Path = VAULT):
         self.path = path
+        self._snapshot = None
 
     def load(self) -> list[dict]:
-        if not self.path.exists():
-            return []
-        return account_payload(json.loads(crypt(self.path.read_bytes(), decrypt=True)))
+        data = read_snapshot(self.path)
+        accounts = [] if data is None else account_payload(json.loads(crypt(data, decrypt=True)))
+        self._snapshot = data
+        return accounts
 
     def save(self, accounts: list[dict]):
-        encrypted = crypt(json.dumps({"version": 2, "accounts": accounts}).encode("utf-8"))
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(".tmp")
-        try:
-            with temporary.open("wb") as file:
-                file.write(encrypted)
-                file.flush()
-                os.fsync(file.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            temporary.unlink(missing_ok=True)
+        with write_lock(self.path):
+            if read_snapshot(self.path) != self._snapshot:
+                raise StoreConflict("Accounts changed in another process. Reload before saving.")
+            encrypted = crypt(json.dumps({"version": 2, "accounts": accounts}).encode("utf-8"))
+            atomic_write(self.path, encrypted)
+            self._snapshot = encrypted
 
 
 def portal_url(value: str) -> str:
@@ -519,22 +570,7 @@ class App(tk.Tk):
             return
         try:
             incoming = read_import(Path(filename))
-            updated = list(self.accounts)
-            def signature(account):
-                return tuple((k, account[k]) for k in sorted(account) if k != "id")
-            seen = {signature(a) for a in updated}
-            identifiers = {a["id"] for a in updated}
-            added = 0
-            for account in incoming:
-                value = signature(account)
-                if value in seen:
-                    continue
-                if account["id"] in identifiers:
-                    account["id"] = str(uuid.uuid4())
-                updated.append(account)
-                identifiers.add(account["id"])
-                seen.add(value)
-                added += 1
+            updated, added = merge_accounts(self.accounts, incoming)
             if added:
                 self.store.save(updated)
         except Exception as error:
@@ -733,6 +769,9 @@ class App(tk.Tk):
         updated = [a for a in self.accounts if a["id"] != account["id"]] + [account]
         try:
             self.store.save(updated)
+        except StoreConflict as error:
+            messagebox.showerror("Could not save", str(error), parent=self)
+            return False
         except Exception:
             messagebox.showerror("Could not save", "Your changes were not saved. Check that the data folder is writable and try again.", parent=self)
             return False
@@ -789,6 +828,9 @@ class App(tk.Tk):
         updated = [a for a in self.accounts if a["id"] != self.current]
         try:
             self.store.save(updated)
+        except StoreConflict as error:
+            messagebox.showerror("Could not delete", str(error), parent=self)
+            return
         except Exception:
             messagebox.showerror("Could not delete", "The account was not deleted. Check that the data folder is writable.", parent=self)
             return
